@@ -7,6 +7,8 @@ public:
 	bool CheckHWBP(bool disable);
 	void KillDebuggerAttach();
 
+	void KillDebuggerAttachHWBP();
+
 private:
 
 };

@@ -2,6 +2,7 @@
 //
 
 #include <iostream>
+#include "Windows.h"
 #include "DebuggingDetector.h"
 
 int main()
@@ -14,6 +15,8 @@ int main()
     dd.KillDebuggerAttach();
     std::cout << "Hello World!\n";
     
+    //IsDebuggerPresent();
+
     int wait;
     std::cin >> wait;
 }
