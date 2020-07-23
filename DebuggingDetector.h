@@ -7,6 +7,7 @@ public:
 	bool CheckHWBP(bool disable);
 	void KillDebuggerAttach();
 	bool IsDebuggerPresent();
+	bool CheckIfBinaryOpened();
 
 	void KillDebuggerAttachHWBP();
 

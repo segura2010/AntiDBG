@@ -76,13 +76,26 @@ bool DebuggingDetector::IsDebuggerPresent()
 	return PEB[2];
 }
 
+bool DebuggingDetector::CheckIfBinaryOpened()
+{
+	wchar_t modulename[MAX_PATH];
+	GetModuleFileName(GetModuleHandle(NULL), modulename, MAX_PATH);
+	HANDLE f = CreateFile(modulename, GENERIC_READ, 0, NULL, OPEN_EXISTING, 0, NULL);
+	bool is_open = f == INVALID_HANDLE_VALUE;
+	if (!is_open) {
+		CloseHandle(f);
+	}
+	return is_open;
+}
+
 void DebuggingDetector::KillDebuggerAttachHWBP()
 {
 	// It will use Hardware Breakpoint to "hook"; do not use the HWBP detector once you call this function
 	HMODULE ntdll_handle = GetModuleHandle(L"ntdll.dll");
-	PVOID pDbgBreakPoint = GetProcAddress(ntdll_handle, "DbgBreakPoint");
 	PVOID pDbgUiRemoteBreakin = GetProcAddress(ntdll_handle, "DbgUiRemoteBreakin");
 	HMODULE kernel32_handle = GetModuleHandle(L"kernel32.dll");
+	HMODULE kernelbase_handle = GetModuleHandle(L"kernelbase.dll");
+	PVOID pVirtualProtect = GetProcAddress(kernelbase_handle, "VirtualProtect");
 	PVOID pIsDebuggerPresent = GetProcAddress(kernel32_handle, "IsDebuggerPresent");
 
 	// set exception handler which will be executed on HWBP
@@ -93,7 +106,7 @@ void DebuggingDetector::KillDebuggerAttachHWBP()
 	CONTEXT ctx;
 	ctx.ContextFlags = CONTEXT_DEBUG_REGISTERS;
 	if (GetThreadContext((HANDLE)-2, &ctx)) {
-		ctx.Dr0 = (DWORD64)pDbgBreakPoint;
+		ctx.Dr0 = (DWORD64)pVirtualProtect;
 		ctx.Dr1 = (DWORD64)pDbgUiRemoteBreakin;
 		ctx.Dr2 = (DWORD64)pIsDebuggerPresent;
 		ctx.Dr3 = 0;
