@@ -8,7 +8,7 @@
 int main()
 {
     DebuggingDetector dd = DebuggingDetector();
-    if (dd.CheckHWBP(true)) {
+    if (dd.CheckHWBP(true) || dd.IsDebuggerPresent()) {
         std::cout << "Debugger detected !!" << std::endl;
         return 0;
     }

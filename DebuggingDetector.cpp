@@ -50,20 +50,30 @@ void DebuggingDetector::KillDebuggerAttach()
 	PVOID pDbgUiRemoteBreakin = GetProcAddress(ntdll_handle, "DbgUiRemoteBreakin");
 	
 	BYTE jmp[1] = { 0xE9 };
+	BYTE movRAX[2] = { 0x48, 0xB8 };
+	BYTE pushRAX_ret[2] = { 0x50, 0xC3 };
 
 	ULONG oldProtection;
+	DWORD64 pDebuggerDetectedExit = (DWORD64)DebuggerDetectedExit;
 
 	VirtualProtect(pDbgBreakPoint, 20, PAGE_EXECUTE_READWRITE, &oldProtection);
-	WriteProcessMemory(GetCurrentProcess(), pDbgBreakPoint, jmp, sizeof(jmp), NULL);
-	DWORD64 jmpOffset = (DWORD64)((DWORD64)DebuggerDetectedExit - (DWORD64)pDbgBreakPoint) - 5;
-	WriteProcessMemory(GetCurrentProcess(), (PVOID)((DWORD64)pDbgBreakPoint + 1), &jmpOffset, sizeof(jmpOffset), NULL);
+	WriteProcessMemory(GetCurrentProcess(), pDbgBreakPoint, movRAX, sizeof(movRAX), NULL);
+	WriteProcessMemory(GetCurrentProcess(), (PVOID)((DWORD64)pDbgBreakPoint + 2), &pDebuggerDetectedExit, sizeof(DWORD64), NULL);
+	WriteProcessMemory(GetCurrentProcess(), (PVOID)((DWORD64)pDbgBreakPoint + 10), pushRAX_ret, sizeof(pushRAX_ret), NULL);
 	VirtualProtect(pDbgBreakPoint, 20, oldProtection, &oldProtection);
 
 	VirtualProtect(pDbgUiRemoteBreakin, 20, PAGE_EXECUTE_READWRITE, &oldProtection);
-	WriteProcessMemory(GetCurrentProcess(), pDbgUiRemoteBreakin, jmp, sizeof(jmp), NULL);
-	jmpOffset = (DWORD64)((DWORD64)DebuggerDetectedExit - (DWORD64)pDbgUiRemoteBreakin) - 5;
-	WriteProcessMemory(GetCurrentProcess(), (PVOID)((DWORD64)pDbgUiRemoteBreakin + 1), &jmpOffset, sizeof(jmpOffset), NULL);
+	WriteProcessMemory(GetCurrentProcess(), pDbgUiRemoteBreakin, movRAX, sizeof(movRAX), NULL);
+	WriteProcessMemory(GetCurrentProcess(), (PVOID)((DWORD64)pDbgUiRemoteBreakin + 2), &pDebuggerDetectedExit, sizeof(DWORD64), NULL);
+	WriteProcessMemory(GetCurrentProcess(), (PVOID)((DWORD64)pDbgUiRemoteBreakin + 10), pushRAX_ret, sizeof(pushRAX_ret), NULL);
 	VirtualProtect(pDbgUiRemoteBreakin, 20, oldProtection, &oldProtection);
+}
+
+bool DebuggingDetector::IsDebuggerPresent()
+{
+	BYTE* PEB = (BYTE*)__readgsqword(0x60);
+	// printf("PEB: %p ; Debugger: %d\n", PEB, PEB[2]);
+	return PEB[2];
 }
 
 void DebuggingDetector::KillDebuggerAttachHWBP()
