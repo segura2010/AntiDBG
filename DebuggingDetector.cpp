@@ -7,6 +7,7 @@ DebuggingDetector::DebuggingDetector()
 {
 }
 
+// Checks if there are any hardware breakpoint set
 bool DebuggingDetector::CheckHWBP(bool disable)
 {
 	bool active = false;
@@ -29,19 +30,21 @@ bool DebuggingDetector::CheckHWBP(bool disable)
 	return active;
 }
 
-
+// Function used for the flow redirection on hooks to kill the process
 void DebuggerDetectedExit()
 {
 	std::cout << "Debugger attach detected!";
 	ExitProcess(1);
 }
 
+// Exception Handler for hardware breakpoint hooks
 LONG WINAPI MyExceptionHandler(PEXCEPTION_POINTERS pExceptionInfo)
 {
 	DebuggerDetectedExit();
 	//return EXCEPTION_CONTINUE_SEARCH;
 }
 
+// Adds hooks on functions with breakpoints which are triggered on debugger attach
 void DebuggingDetector::KillDebuggerAttach()
 {
 	// It will use Hardware Breakpoint to "hook"; do not use the HWBP detector once you call this function
@@ -69,6 +72,23 @@ void DebuggingDetector::KillDebuggerAttach()
 	VirtualProtect(pDbgUiRemoteBreakin, 20, oldProtection, &oldProtection);
 }
 
+// Detects if anti-attach hooks have been deleted
+bool DebuggingDetector::DeletedDebuggerAttachHooks()
+{
+	HMODULE ntdll_handle = GetModuleHandle(L"ntdll.dll");
+	PVOID hooks[2] = { GetProcAddress(ntdll_handle, "DbgBreakPoint"), GetProcAddress(ntdll_handle, "DbgUiRemoteBreakin") };
+
+	for (int i = 0; i < 2; i++) {
+		BYTE* h = (BYTE*)hooks[i];
+		if (h[0] != 0x48 || h[1] != 0xB8) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+// it is the same implementation of IsDebuggerPresent, but not using the Windows API to avoid breakpoint detection
 bool DebuggingDetector::IsDebuggerPresent()
 {
 	BYTE* PEB = (BYTE*)__readgsqword(0x60);
@@ -76,6 +96,8 @@ bool DebuggingDetector::IsDebuggerPresent()
 	return PEB[2];
 }
 
+// Opens the binary in restricted shared mode (3rd parameter of CreateFile); if another process has the file open it will fail
+// the binary could have been open by debugger, disassembler, etc.
 bool DebuggingDetector::CheckIfBinaryOpened()
 {
 	wchar_t modulename[MAX_PATH];
@@ -88,6 +110,7 @@ bool DebuggingDetector::CheckIfBinaryOpened()
 	return is_open;
 }
 
+// Sets hardware breakpoints on execution for different functions (actually is not really useful)
 void DebuggingDetector::KillDebuggerAttachHWBP()
 {
 	// It will use Hardware Breakpoint to "hook"; do not use the HWBP detector once you call this function

@@ -18,4 +18,12 @@ int main()
 
     int wait;
     std::cin >> wait;
+
+    if(dd.DeletedDebuggerAttachHooks()) {
+        std::cout << "Deleted anti-attach hooks!" << std::endl;
+        return 0;
+    }
+
+    std::cout << "More tests passed...\n";
+    std::cin >> wait;
 }
