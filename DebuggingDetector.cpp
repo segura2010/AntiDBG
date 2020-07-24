@@ -47,29 +47,24 @@ LONG WINAPI MyExceptionHandler(PEXCEPTION_POINTERS pExceptionInfo)
 // Adds hooks on functions with breakpoints which are triggered on debugger attach
 void DebuggingDetector::KillDebuggerAttach()
 {
-	// It will use Hardware Breakpoint to "hook"; do not use the HWBP detector once you call this function
-	HMODULE ntdll_handle = GetModuleHandle(L"ntdll.dll");
-	PVOID pDbgBreakPoint = GetProcAddress(ntdll_handle, "DbgBreakPoint");
-	PVOID pDbgUiRemoteBreakin = GetProcAddress(ntdll_handle, "DbgUiRemoteBreakin");
-	
 	BYTE jmp[1] = { 0xE9 };
 	BYTE movRAX[2] = { 0x48, 0xB8 };
 	BYTE pushRAX_ret[2] = { 0x50, 0xC3 };
 
+	HMODULE ntdll_handle = GetModuleHandle(L"ntdll.dll");
+	PVOID hooks[2] = { GetProcAddress(ntdll_handle, "DbgBreakPoint"), GetProcAddress(ntdll_handle, "DbgUiRemoteBreakin") };
+
 	ULONG oldProtection;
 	DWORD64 pDebuggerDetectedExit = (DWORD64)DebuggerDetectedExit;
 
-	VirtualProtect(pDbgBreakPoint, 20, PAGE_EXECUTE_READWRITE, &oldProtection);
-	WriteProcessMemory(GetCurrentProcess(), pDbgBreakPoint, movRAX, sizeof(movRAX), NULL);
-	WriteProcessMemory(GetCurrentProcess(), (PVOID)((DWORD64)pDbgBreakPoint + 2), &pDebuggerDetectedExit, sizeof(DWORD64), NULL);
-	WriteProcessMemory(GetCurrentProcess(), (PVOID)((DWORD64)pDbgBreakPoint + 10), pushRAX_ret, sizeof(pushRAX_ret), NULL);
-	VirtualProtect(pDbgBreakPoint, 20, oldProtection, &oldProtection);
-
-	VirtualProtect(pDbgUiRemoteBreakin, 20, PAGE_EXECUTE_READWRITE, &oldProtection);
-	WriteProcessMemory(GetCurrentProcess(), pDbgUiRemoteBreakin, movRAX, sizeof(movRAX), NULL);
-	WriteProcessMemory(GetCurrentProcess(), (PVOID)((DWORD64)pDbgUiRemoteBreakin + 2), &pDebuggerDetectedExit, sizeof(DWORD64), NULL);
-	WriteProcessMemory(GetCurrentProcess(), (PVOID)((DWORD64)pDbgUiRemoteBreakin + 10), pushRAX_ret, sizeof(pushRAX_ret), NULL);
-	VirtualProtect(pDbgUiRemoteBreakin, 20, oldProtection, &oldProtection);
+	for (int i = 0; i < 2; i++) {
+		PVOID h = hooks[i];
+		VirtualProtect(h, 20, PAGE_EXECUTE_READWRITE, &oldProtection);
+		WriteProcessMemory(GetCurrentProcess(), h, movRAX, sizeof(movRAX), NULL);
+		WriteProcessMemory(GetCurrentProcess(), (PVOID)((DWORD64)h + 2), &pDebuggerDetectedExit, sizeof(DWORD64), NULL);
+		WriteProcessMemory(GetCurrentProcess(), (PVOID)((DWORD64)h + 10), pushRAX_ret, sizeof(pushRAX_ret), NULL);
+		VirtualProtect(h, 20, oldProtection, &oldProtection);
+	}
 }
 
 // Detects if anti-attach hooks have been deleted
